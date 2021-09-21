@@ -42,8 +42,10 @@ class CDCK6(nn.Module):
         self.Wk1  = nn.ModuleList([nn.Linear(128, 512) for i in range(timestep)])
         self.gru2 = nn.GRU(512, 128, num_layers=1, bidirectional=False, batch_first=True)
         self.Wk2  = nn.ModuleList([nn.Linear(128, 512) for i in range(timestep)])
-        self.softmax  = nn.Softmax()
-        self.lsoftmax = nn.LogSoftmax()
+        #self.softmax  = nn.Softmax() # implicit dim is deprecated
+        self.softmax  = nn.Softmax(dim = 1)
+        #self.lsoftmax = nn.LogSoftmax() # implicit dim is deprecated
+        self.lsoftmax = nn.LogSoftmax(dim = 1)
 
         def _weights_init(m):
             if isinstance(m, nn.Linear):
@@ -77,7 +79,7 @@ class CDCK6(nn.Module):
     def forward(self, x, x_reverse, hidden1, hidden2):
         batch = x.size()[0]
         nce = 0 # average over timestep and batch and gpus
-        t_samples = torch.randint(self.seq_len/160-self.timestep, size=(1,)).long() # randomly pick time stamps. ONLY DO THIS ONCE FOR BOTH GRU.
+        t_samples = torch.randint(int(self.seq_len/160)-self.timestep, size=(1,)).long() # randomly pick time stamps. ONLY DO THIS ONCE FOR BOTH GRU.
 
         # first gru
         # input sequence is N*C*L, e.g. 8*1*20480
@@ -177,8 +179,10 @@ class CDCK5(nn.Module):
 
         self.gru = nn.GRU(512, 40, num_layers=2, bidirectional=False, batch_first=True)
         self.Wk  = nn.ModuleList([nn.Linear(40, 512) for i in range(timestep)])
-        self.softmax  = nn.Softmax()
-        self.lsoftmax = nn.LogSoftmax()
+        #self.softmax  = nn.Softmax() # implicit dim is deprecated
+        self.softmax  = nn.Softmax(dim = 1)
+        #self.lsoftmax = nn.LogSoftmax() # implicit dim is deprecated
+        self.lsoftmax = nn.LogSoftmax(dim = 1)
 
         def _weights_init(m):
             if isinstance(m, nn.Linear):
@@ -203,7 +207,7 @@ class CDCK5(nn.Module):
 
     def forward(self, x, hidden):
         batch = x.size()[0]
-        t_samples = torch.randint(self.seq_len/160-self.timestep, size=(1,)).long() # randomly pick time stamps
+        t_samples = torch.randint(int(self.seq_len/160)-self.timestep, size=(1,)).long() # randomly pick time stamps
         # input sequence is N*C*L, e.g. 8*1*20480
         z = self.encoder(x)
         # encoded sequence is N*C*L, e.g. 8*512*128
@@ -269,8 +273,10 @@ class CDCK2(nn.Module):
         )
         self.gru = nn.GRU(512, 256, num_layers=1, bidirectional=False, batch_first=True)
         self.Wk  = nn.ModuleList([nn.Linear(256, 512) for i in range(timestep)])
-        self.softmax  = nn.Softmax()
-        self.lsoftmax = nn.LogSoftmax()
+        #self.softmax  = nn.Softmax() # implicit dim is deprecated
+        self.softmax  = nn.Softmax(dim = 1)
+        #self.lsoftmax = nn.LogSoftmax() # implicit dim is deprecated
+        self.lsoftmax = nn.LogSoftmax(dim = 1)
 
         def _weights_init(m):
             if isinstance(m, nn.Linear):
@@ -295,7 +301,7 @@ class CDCK2(nn.Module):
 
     def forward(self, x, hidden):
         batch = x.size()[0]
-        t_samples = torch.randint(self.seq_len/160-self.timestep, size=(1,)).long() # randomly pick time stamps
+        t_samples = torch.randint(int(self.seq_len/160)-self.timestep, size=(1,)).long() # randomly pick time stamps
         # input sequence is N*C*L, e.g. 8*1*20480
         z = self.encoder(x)
         # encoded sequence is N*C*L, e.g. 8*512*128
@@ -313,7 +319,7 @@ class CDCK2(nn.Module):
             linear = self.Wk[i]
             pred[i] = linear(c_t) # Wk*c_t e.g. size 8*512
         for i in np.arange(0, self.timestep):
-            total = torch.mm(encode_samples[i], torch.transpose(pred[i],0,1)) # e.g. size 8*8
+            total = torch.mm(encode_samples[i], torch.transpose(pred[i],0,1)) # e.g. size 8*8:  (positive sample idx, all predictions idx) @ i step future
             correct = torch.sum(torch.eq(torch.argmax(self.softmax(total), dim=0), torch.arange(0, batch))) # correct is a tensor
             nce += torch.sum(torch.diag(self.lsoftmax(total))) # nce is a tensor
         nce /= -1.*batch*self.timestep

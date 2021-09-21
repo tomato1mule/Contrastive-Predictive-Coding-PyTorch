@@ -349,7 +349,7 @@ class RawDataset(data.Dataset):
         """
         self.raw_file  = raw_file 
         self.audio_window = audio_window 
-        self.utts = []
+        self.utts = [] # list of file names (1 utterance = 1 file)
 
         with open(list_file) as f:
             temp = f.readlines()
